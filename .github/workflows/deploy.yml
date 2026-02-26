@@ -1,0 +1,52 @@
+name: Deploy Code
+
+on:
+  push:
+    branches:
+      - main # Деплоить при пуше в ветку main
+  workflow_dispatch:
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+      - name: Deploy to Server
+        uses: appleboy/ssh-action@master
+        with:
+          host: ${{ secrets.HOST_IP }}
+          username: ${{ secrets.USERNAME }}
+          key: ${{ secrets.SSH_KEY }}
+          port: ${{ secrets.SSH_PORT }}
+          script: |
+            # 1. Создаем папку, если сервер "голый" и её еще нет
+            mkdir -p ${{ secrets.TARGET_DIR }}
+            cd ${{ secrets.TARGET_DIR }}
+
+            # 2. Проверяем, есть ли тут Git. Если нет — клонируем.
+            if [ ! -d ".git" ]; then
+              echo "Сервер чист. Начинаем полное восстановление..."
+              # Очищаем папку на случай, если там какой-то мусор от системы
+              rm -rf ..?* .[!.]* * 
+              git clone git@github.com:${{ github.repository }}.git .
+            else
+              echo "Сервер жив. Просто обновляем код..."
+              git pull origin main
+            fi
+
+             echo "Deployment/Recovery successful"
+
+      - name: Docker Deploy
+        uses: appleboy/ssh-action@master
+        with:
+          host: ${{ secrets.HOST_IP }}
+          username: ${{ secrets.USERNAME }}
+          key: ${{ secrets.SSH_KEY }}
+          port: ${{ secrets.SSH_PORT }}
+          script: |
+            cd ${{ secrets.TARGET_DIR }}
+            docker-compose pull
+            docker-compose up -d --remove-orphans
+            docker image prune -f

@@ -1,0 +1,28 @@
+# 1. Секреты (САМОЕ ВАЖНОЕ)
+.env
+.env.*
+*.key
+*.pem
+*.crt
+
+# 2. Системный мусор
+.DS_Store
+Thumbs.db
+
+# 3. Данные (Docker Volumes)
+# Если вдруг ты решишь примонтировать данные в текущую папку
+postgres_data/
+redis_data/
+stacks/
+logs/
+
+# 4. Python мусор (для твоей папки backend)
+__pycache__/
+*.py[cod]
+*$py.class
+backend/venv/
+backend/.venv/
+
+# 5. IDE
+.idea/
+.vscode/
