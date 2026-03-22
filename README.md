@@ -23,7 +23,7 @@
 
 | Категория | Инструменты | Описание |
 | :--- | :--- | :--- |
-| **App** | Django, Gunicorn, Python | Бэкенд приложения Yamtrack |
+| **App** | Django, Gunicorn, Python | Бэкенд приложения Yamtrack(https://github.com/FuzzyGrim/Yamtrack) |
 | **DB & Cache** | PostgreSQL 17, Redis 8 | База данных и брокер сообщений для фоновых задач (Celery) |
 | **Proxy** | Nginx | Реверс-прокси, SSL, маршрутизация по поддоменам |
 | **Observability** | Prometheus, Grafana | Сбор метрик хоста (Node Exporter) и контейнеров (cAdvisor) |
