@@ -47,7 +47,7 @@
 ### 2. Централизованное логирование (Logs)  
 *   **Promtail** подключен напрямую к демону Docker (через `/var/run/docker.sock`). Он автоматически обнаруживает новые контейнеры (Service Discovery), парсит их логи, добавляет метаданные (имя контейнера, сервис) и отправляет в **Loki**.
 *   **Loki** индексирует лейблы и позволяет выполнять быстрые запросы (LogQL) через единый интерфейс Grafana Explore.  
-<img width="1825" height="874" alt="image" src="https://github.com/user-attachments/assets/7fd06a2e-6bba-4eef-bac2-850b672e57a1" />
+<img width="1816" height="873" alt="image" src="https://github.com/user-attachments/assets/f6777eb1-7d5b-45ba-9397-17df90ecc493" />
 
 > *Дашборд состояния сервера: CPU, RAM, Network I/O и потребление ресурсов контейнерами.*
 
