@@ -1,14 +1,13 @@
 name: Deploy Code
-
 on:
   push:
     branches:
-      - main # Деплоить при пуше в ветку main
+      - main
   workflow_dispatch:
+
 jobs:
   deploy:
     runs-on: ubuntu-latest
-
     steps:
       - name: Checkout code
         uses: actions/checkout@v3
@@ -21,24 +20,20 @@ jobs:
           key: ${{ secrets.SSH_KEY }}
           port: ${{ secrets.SSH_PORT }}
           script: |
-            # 1. Создаем папку, если сервер "голый" и её еще нет
             mkdir -p ${{ secrets.TARGET_DIR }}
             cd ${{ secrets.TARGET_DIR }}
 
-            # 2. Проверяем, есть ли тут Git. Если нет — клонируем.
             if [ ! -d ".git" ]; then
               echo "Сервер чист. Начинаем полное восстановление..."
-              # Очищаем папку на случай, если там какой-то мусор от системы
-              rm -rf ..?* .[!.]* * 
+              rm -rf ..?* .[!.]* *
               git clone git@github.com:${{ github.repository }}.git .
             else
               echo "Сервер жив. Просто обновляем код..."
               git pull origin main
             fi
+            echo "✅ Код обновлён"
 
-             echo "Deployment/Recovery successful"
-
-      - name: Docker Deploy
+      - name: Docker Deploy with Rollback
         uses: appleboy/ssh-action@master
         with:
           host: ${{ secrets.HOST_IP }}
@@ -47,6 +42,70 @@ jobs:
           port: ${{ secrets.SSH_PORT }}
           script: |
             cd ${{ secrets.TARGET_DIR }}
+
+            # --- Сохраняем ID старого образа ---
+            echo "Сохраняем текущий образ yamtrack..."
+            OLD_IMAGE=$(docker inspect --format='{{.Image}}' yamtrack 2>/dev/null || echo "none")
+            echo "Старый образ: $OLD_IMAGE"
+
+            # --- Деплоим ---
+            echo "Запускаем деплой..."
             docker-compose pull
             docker-compose up -d --remove-orphans
-            docker image prune -f
+
+            # --- Ждём пока Django поднимется ---
+            echo "Ждём 25 секунд пока приложение запустится..."
+            sleep 25
+
+            # --- Healthcheck через Python внутри контейнера ---
+            echo "Проверяем что приложение отвечает..."
+            HTTP_CODE=$(docker exec yamtrack python -c \
+              "import urllib.request, sys
+try:
+    r = urllib.request.urlopen('http://localhost:8000/')
+    print(r.status)
+except Exception as e:
+    print('000')
+" 2>/dev/null || echo "000")
+            echo "HTTP статус: $HTTP_CODE"
+
+            # --- Оцениваем результат ---
+            if [ "$HTTP_CODE" = "200" ] || [ "$HTTP_CODE" = "301" ] || [ "$HTTP_CODE" = "302" ]; then
+              echo "✅ Деплой успешен! Чистим старые образы..."
+              docker image prune -f
+            else
+              echo "❌ Приложение не отвечает (HTTP: $HTTP_CODE). Откатываемся..."
+
+              if [ "$OLD_IMAGE" != "none" ]; then
+                echo "Останавливаем новый контейнер..."
+                docker-compose stop yamtrack
+
+                echo "Принудительно ставим старый образ..."
+                docker tag "$OLD_IMAGE" ghcr.io/fuzzygrim/yamtrack:latest
+
+                echo "Поднимаем старый контейнер..."
+                docker-compose up -d yamtrack
+
+                echo "Ждём 20 секунд после отката..."
+                sleep 20
+
+                HTTP_AFTER=$(docker exec yamtrack python -c \
+                  "import urllib.request, sys
+try:
+    r = urllib.request.urlopen('http://localhost:8000/')
+    print(r.status)
+except Exception as e:
+    print('000')
+" 2>/dev/null || echo "000")
+
+                if [ "$HTTP_AFTER" = "200" ] || [ "$HTTP_AFTER" = "301" ] || [ "$HTTP_AFTER" = "302" ]; then
+                  echo "✅ Откат успешен! Сервис восстановлен на предыдущей версии."
+                else
+                  echo "🔥 Откат не помог. Требуется ручное вмешательство!"
+                fi
+              else
+                echo "⚠️ Старого образа нет — откатываться некуда. Первый деплой?"
+              fi
+
+              exit 1
+            fi
