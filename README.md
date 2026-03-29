@@ -51,6 +51,11 @@
 
 > *Дашборд состояния сервера: CPU, RAM, Network I/O и потребление ресурсов контейнерами.*
 
+### 3. Алёртинг (Alerting)
+Настроены Grafana Alert Rules с доставкой уведомлений в **Telegram**:
+- 🔴 `Yamtrack Down` — контейнер приложения недоступен
+- 🟡 `High CPU` — загрузка CPU выше 80% дольше 5 минут
+- 🟡 `High RAM` — потребление памяти выше 85%
 ---
 
 ## 🚀 Деплой и Установка
@@ -67,19 +72,22 @@ ansible-playbook -i hosts.ini setup_server.yml
 ```bash
 docker-compose up -d
 ```
-### 3. Автоматический деплой (CI/CD)  
-- Настроен GitHub Actions Workflow.  
-- Срабатывает триггер push в ветку main.  
-- Runner подключается к серверу по SSH.  
-- Обновляет код (git pull).  
-- Пересобирает контейнеры (docker-compose up -d --build).  
-- Чистит старые образы (docker image prune).  
+### 3. Автоматический деплой (CI/CD)
+- Настроен GitHub Actions Workflow.
+- Срабатывает триггер push в ветку `main`.
+- Runner подключается к серверу по SSH.
+- Обновляет код (`git pull`).
+- Пересобирает контейнеры (`docker-compose pull && up -d`).
+- **Healthcheck после деплоя** — проверяет что приложение отвечает HTTP 200.
+- **Автоматический rollback** — если healthcheck не прошёл, контейнер откатывается на предыдущий образ.
+- Чистит старые образы (`docker image prune`). 
 
-🛡 Безопасность (Security Measures)  
-* Network Isolation: PostgreSQL и Redis не имеют проброшенных портов (ports) на хост, доступны только внутри Docker Network.  
-* SSL/TLS: Строгий режим шифрования (Full Strict) через Cloudflare.  
-* Firewall: Настроены правила UFW (разрешены только SSH, 443, 8443).  
-* Secrets Management: Все чувствительные данные (.env) исключены из репозитория (.gitignore) и доставляются на сервер отдельно.  
+## 🛡 Безопасность (Security Measures)
+- **Network Isolation:** PostgreSQL и Redis не имеют проброшенных портов на хост, доступны только внутри Docker Network.
+- **SSL/TLS:** Строгий режим шифрования (Full Strict) через Cloudflare.
+- **Firewall:** Настроены правила UFW (разрешены только SSH, 443, 8443).
+- **Secrets Management:** Все чувствительные данные (`.env`, `grafana_auth`) исключены из репозитория (`.gitignore`) и доставляются на сервер отдельно.
+- **Basic Auth:** Grafana закрыта дополнительным слоем аутентификации на уровне Nginx — страница мониторинга недоступна без логина/пароля.
 
 Лицензия и авторство  
 Этот проект является инфраструктурной оберткой для приложения Yamtrack, созданного FuzzyGrim. Оригинальный проект и данный репозиторий распространяются на условиях лицензии AGPL-3.0.
