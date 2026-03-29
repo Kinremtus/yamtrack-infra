@@ -4,7 +4,7 @@
 *.key
 *.pem
 *.crt
-
+grafana_auth
 # 2. Системный мусор
 .DS_Store
 Thumbs.db

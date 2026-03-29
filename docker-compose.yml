@@ -31,7 +31,8 @@ services:
       - "8443:443"
     volumes:
       - ./nginx.conf:/etc/nginx/conf.d/default.conf:ro
-      - /etc/ssl:/etc/ssl:ro 
+      - /etc/ssl:/etc/ssl:ro
+      - ./grafana_auth:/etc/nginx/grafana_auth:ro 
     depends_on:
       - yamtrack
     networks:
