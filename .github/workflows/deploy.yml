@@ -22,7 +22,6 @@ jobs:
           script: |
             mkdir -p ${{ secrets.TARGET_DIR }}
             cd ${{ secrets.TARGET_DIR }}
-
             if [ ! -d ".git" ]; then
               echo "Сервер чист. Начинаем полное восстановление..."
               rm -rf ..?* .[!.]* *
@@ -43,33 +42,21 @@ jobs:
           script: |
             cd ${{ secrets.TARGET_DIR }}
 
-            # --- Сохраняем ID старого образа ---
             echo "Сохраняем текущий образ yamtrack..."
             OLD_IMAGE=$(docker inspect --format='{{.Image}}' yamtrack 2>/dev/null || echo "none")
             echo "Старый образ: $OLD_IMAGE"
 
-            # --- Деплоим ---
             echo "Запускаем деплой..."
             docker-compose pull
             docker-compose up -d --remove-orphans
 
-            # --- Ждём пока Django поднимется ---
             echo "Ждём 25 секунд пока приложение запустится..."
             sleep 25
 
-            # --- Healthcheck через Python внутри контейнера ---
             echo "Проверяем что приложение отвечает..."
-            HTTP_CODE=$(docker exec yamtrack python -c \
-              "import urllib.request, sys
-try:
-    r = urllib.request.urlopen('http://localhost:8000/')
-    print(r.status)
-except Exception as e:
-    print('000')
-" 2>/dev/null || echo "000")
+            HTTP_CODE=$(docker exec yamtrack python -c "import urllib.request; r = urllib.request.urlopen('http://localhost:8000/'); print(r.status)" 2>/dev/null || echo "000")
             echo "HTTP статус: $HTTP_CODE"
 
-            # --- Оцениваем результат ---
             if [ "$HTTP_CODE" = "200" ] || [ "$HTTP_CODE" = "301" ] || [ "$HTTP_CODE" = "302" ]; then
               echo "✅ Деплой успешен! Чистим старые образы..."
               docker image prune -f
@@ -89,22 +76,15 @@ except Exception as e:
                 echo "Ждём 20 секунд после отката..."
                 sleep 20
 
-                HTTP_AFTER=$(docker exec yamtrack python -c \
-                  "import urllib.request, sys
-try:
-    r = urllib.request.urlopen('http://localhost:8000/')
-    print(r.status)
-except Exception as e:
-    print('000')
-" 2>/dev/null || echo "000")
+                HTTP_AFTER=$(docker exec yamtrack python -c "import urllib.request; r = urllib.request.urlopen('http://localhost:8000/'); print(r.status)" 2>/dev/null || echo "000")
 
                 if [ "$HTTP_AFTER" = "200" ] || [ "$HTTP_AFTER" = "301" ] || [ "$HTTP_AFTER" = "302" ]; then
-                  echo "✅ Откат успешен! Сервис восстановлен на предыдущей версии."
+                  echo "✅ Откат успешен! Сервис восстановлен."
                 else
                   echo "🔥 Откат не помог. Требуется ручное вмешательство!"
                 fi
               else
-                echo "⚠️ Старого образа нет — откатываться некуда. Первый деплой?"
+                echo "⚠️ Старого образа нет — откатываться некуда."
               fi
 
               exit 1
