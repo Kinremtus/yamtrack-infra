@@ -60,8 +60,16 @@ def run_backup():
     db_name = os.getenv("POSTGRES_DB")
     db_password = os.getenv("POSTGRES_PASSWORD")
 
-    cmd = f"docker exec -e PGPASSWORD={db_password} {CONTAINER_NAME} pg_dump -U {db_user} {db_name} | gzip > {file_path}"
-
+    cmd = [
+    "docker", "exec",
+    "-e", f"PGPASSWORD={db_password}",
+    CONTAINER_NAME,
+    "pg_dump", "-U", db_user, db_name
+    ]
+    with open(file_path, "wb") as f:
+        dump = subprocess.run(cmd, stdout=subprocess.PIPE, check=True)
+        f.write(gzip.compress(dump.stdout))
+    
     try:
         print(f"Running dump for database: {db_name}...")
         subprocess.run(cmd, shell=True, check=True, capture_output=True)
