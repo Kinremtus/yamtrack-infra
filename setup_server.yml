@@ -1,0 +1,94 @@
+---
+- name: Полная настройка боевого сервера
+  hosts: my_vps
+  become: yes  # Все команды выполняются от root (sudo)
+
+  tasks:
+    # ---------------------------------------------------
+    # БЛОК 1: Базовые утилиты
+    # ---------------------------------------------------
+    - name: Установить полезный софт
+      apt:
+        name:
+          - htop
+          - git
+          - curl
+          - wget
+          - gnupg
+          - ca-certificates
+          - lsb-release
+        state: present
+        update_cache: yes
+
+    # ---------------------------------------------------
+    # БЛОК 2: Установка Docker (Официальный способ)
+    # ---------------------------------------------------
+    
+    # 1. Создаем папку для ключей (если нет)
+    - name: Создать директорию keyrings
+      file:
+        path: /etc/apt/keyrings
+        state: directory
+        mode: '0755'
+
+    # 2. Скачиваем ключ.
+    # Если файл уже есть и он такой же - Ansible пропустит этот шаг (Green)
+    - name: Скачать GPG ключ Docker
+      get_url:
+        url: https://download.docker.com/linux/ubuntu/gpg
+        dest: /etc/apt/keyrings/docker.asc
+        mode: '0644'
+        force: no # Не перезаписывать, если уже есть
+
+    # 3. Добавляем репозиторий.
+    # Ansible сам определит версию Ubuntu (jammy/noble/focal)
+    - name: Добавить репозиторий Docker
+      apt_repository:
+        repo: "deb [arch=amd64 signed-by=/etc/apt/keyrings/docker.asc] https://download.docker.com/linux/ubuntu {{ ansible_facts['distribution_release'] }} stable"
+        state: present
+        filename: docker
+
+    # 4. Устанавливаем сам Docker
+    # ВАЖНО: Тут docker-ce (правильный), а не docker.io (старый)
+    - name: Установить Docker Engine и Плагины
+      apt:
+        name:
+          - docker-ce
+          - docker-ce-cli
+          - containerd.io
+          - docker-buildx-plugin
+          - docker-compose-plugin
+        state: present
+        update_cache: yes
+
+    # 5. Проверяем, что он работает
+    - name: Запустить Docker
+      service:
+        name: docker
+        state: started
+        enabled: yes
+
+    # ---------------------------------------------------
+    # БЛОК 3: Твои личные настройки
+    # ---------------------------------------------------
+    - name: Создать папку для скриптов
+      file:
+        path: /opt/my_scripts
+        state: directory
+        mode: '0755'
+
+    - name: Убедиться, что Docker запущен и в автозагрузке
+      service:
+        name: docker
+        state: started
+        enabled: yes
+
+   
+    - name: Узнать версию Docker
+      command: docker -v
+      register: docker_version
+      changed_when: false # Говорим Ансиблу: "Эта команда ничего не меняет, не подсвечивай желтым"
+
+    - name: Вывод версии
+      debug:
+        msg: "Настройка завершена! {{ docker_version.stdout }}"
